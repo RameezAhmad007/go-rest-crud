@@ -1,0 +1,121 @@
+openapi: 3.0.0
+info:
+  title: Card API
+  version: 1.0.0
+  description: A simple REST API for managing cards
+paths:
+  /card:
+    post:
+      summary: Create a new card
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Card"
+      responses:
+        "201":
+          description: Card created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardResponse"
+        "400":
+          description: Bad request
+        "409":
+          description: Card already exists
+    get:
+      summary: Get all cards
+      responses:
+        "200":
+          description: List of cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Card"
+  /card/{id}:
+    get:
+      summary: Get a card by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Card details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardResponse"
+        "404":
+          description: Card not found
+    put:
+      summary: Update a card
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CardUpdate"
+      responses:
+        "200":
+          description: Card updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardResponse"
+        "404":
+          description: Card not found
+    delete:
+      summary: Delete a card
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Card deleted successfully
+        "404":
+          description: Card not found
+components:
+  schemas:
+    Card:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        number:
+          type: integer
+      required:
+        - name
+        - number
+    CardUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        number:
+          type: integer
+    CardResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object

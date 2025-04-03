@@ -1,0 +1,16 @@
+syntax = "proto3";
+package card;
+
+option go_package = "./proto";
+
+message Card {
+  string id = 1;
+  string name = 2;
+  int32 number = 3;
+}
+
+message CardResponse {
+  int32 status = 1;
+  string message = 2;
+  Card data = 3;
+}
