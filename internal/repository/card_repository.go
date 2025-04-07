@@ -26,7 +26,7 @@ func CreateCard(ctx context.Context, card model.Card) (model.Card, error) {
 		return model.Card{}, err
 	}
 
-	card.ID = primitive.NewObjectID()
+	card.Id = primitive.NewObjectID()
 	_, err = cardsCollection.InsertOne(ctx, card)
 	return card, err
 }
