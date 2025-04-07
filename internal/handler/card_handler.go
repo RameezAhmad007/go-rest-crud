@@ -4,203 +4,208 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
-	"github.com/RameezAhmad007/go-rest-crud/internal/model"
+	"github.com/RameezAhmad007/go-rest-crud/internal/api"
 	"github.com/RameezAhmad007/go-rest-crud/internal/repository"
-	"github.com/RameezAhmad007/go-rest-crud/internal/response"
+	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+type CardHandler struct{}
+
 func RegisterCardRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("/card", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			createCard(w, r)
-		case http.MethodGet:
-			getAllCards(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.HandleFunc("/card/", func(w http.ResponseWriter, r *http.Request) {
-		id := strings.TrimPrefix(r.URL.Path, "/card/")
-		switch r.Method {
-		case http.MethodGet:
-			getCard(w, r, id)
-		case http.MethodPut:
-			updateCard(w, r, id)
-		case http.MethodDelete:
-			deleteCard(w, r, id)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
+	r := chi.NewRouter()
+	handler := &CardHandler{}
+	api.HandlerFromMux(handler, r)
+	mux.Handle("/", r)
 }
 
-func createCard(w http.ResponseWriter, r *http.Request) {
+func (h *CardHandler) PostCard(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("create card endpoint hit")
-	ctx := r.Context()
-	var card model.Card
+	var card api.Card
 	if err := json.NewDecoder(r.Body).Decode(&card); err != nil {
-		writeResponse(w, response.CardResponse{
-			Status:  http.StatusBadRequest,
-			Message: "error",
-			Data:    err.Error(),
+		writeResponse(w, api.CardResponse{
+			Status:  intPtr(http.StatusBadRequest),
+			Message: stringPtr("error"),
+			Data:    toMap(err.Error()),
 		})
 		return
 	}
 
-	newCard, err := repository.CreateCard(ctx, card)
+	newCard, err := repository.CreateCard(r.Context(), card)
 	if err != nil {
 		if err == mongo.ErrClientDisconnected {
-			writeResponse(w, response.CardResponse{
-				Status:  http.StatusConflict,
-				Message: "error",
-				Data:    fmt.Sprintf("Card with name '%s' already exists", card.Name),
+			writeResponse(w, api.CardResponse{
+				Status:  intPtr(http.StatusConflict),
+				Message: stringPtr("error"),
+				Data:    toMap(fmt.Sprintf("Card with name '%s' already exists", card.Name)),
 			})
 		} else {
-			writeResponse(w, response.CardResponse{
-				Status:  http.StatusInternalServerError,
-				Message: "error",
-				Data:    err.Error(),
+			writeResponse(w, api.CardResponse{
+				Status:  intPtr(http.StatusInternalServerError),
+				Message: stringPtr("error"),
+				Data:    toMap(err.Error()),
 			})
 		}
 		return
 	}
 
-	writeResponse(w, response.CardResponse{
-		Status:  http.StatusCreated,
-		Message: "success",
-		Data:    newCard,
+	writeResponse(w, api.CardResponse{
+		Status:  intPtr(http.StatusCreated),
+		Message: stringPtr("success"),
+		Data:    toMap(newCard),
 	})
 }
 
-func getCard(w http.ResponseWriter, r *http.Request, id string) {
-	fmt.Println("get card endpoint hit")
-	ctx := r.Context()
-	card, err := repository.GetCard(ctx, id)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			writeResponse(w, response.CardResponse{
-				Status:  http.StatusNotFound,
-				Message: "error",
-				Data:    "Card not found",
-			})
-		} else {
-			writeResponse(w, response.CardResponse{
-				Status:  http.StatusBadRequest,
-				Message: "error",
-				Data:    err.Error(),
-			})
-		}
-		return
-	}
-
-	writeResponse(w, response.CardResponse{
-		Status:  http.StatusOK,
-		Message: "success",
-		Data:    card,
-	})
-}
-
-func getAllCards(w http.ResponseWriter, r *http.Request) {
+func (h *CardHandler) GetCard(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Get all cards endpoint hit")
-	ctx := r.Context()
-	cards, err := repository.GetAllCards(ctx)
+	cards, err := repository.GetAllCards(r.Context())
 	if err != nil {
-		writeResponse(w, response.CardResponse{
-			Status:  http.StatusInternalServerError,
-			Message: "error",
-			Data:    err.Error(),
+		writeResponse(w, api.CardResponse{
+			Status:  intPtr(http.StatusInternalServerError),
+			Message: stringPtr("error"),
+			Data:    toMap(err.Error()),
 		})
 		return
 	}
 
-	writeResponse(w, response.CardResponse{
-		Status:  http.StatusOK,
-		Message: "success",
-		Data:    cards,
-	})
-}
-
-func updateCard(w http.ResponseWriter, r *http.Request, id string) {
-	fmt.Println("update card endpoint hit")
-	ctx := r.Context()
-	var updateData map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&updateData); err != nil {
-		writeResponse(w, response.CardResponse{
-			Status:  http.StatusBadRequest,
-			Message: "error",
-			Data:    err.Error(),
-		})
-		return
-	}
-
-	updatedCard, err := repository.UpdateCard(ctx, id, updateData)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			writeResponse(w, response.CardResponse{
-				Status:  http.StatusNotFound,
-				Message: "error",
-				Data:    "Card not found",
-			})
-		} else {
-			writeResponse(w, response.CardResponse{
-				Status:  http.StatusInternalServerError,
-				Message: "error",
-				Data:    err.Error(),
-			})
-		}
-		return
-	}
-
-	writeResponse(w, response.CardResponse{
-		Status:  http.StatusOK,
-		Message: "success",
-		Data:    updatedCard,
-	})
-}
-
-func deleteCard(w http.ResponseWriter, r *http.Request, id string) {
-	fmt.Println("Delete card endpoint hit")
-	ctx := r.Context()
-	deletedCount, err := repository.DeleteCard(ctx, id)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			writeResponse(w, response.CardResponse{
-				Status:  http.StatusNotFound,
-				Message: "error",
-				Data:    "Card not found",
-			})
-		} else {
-			writeResponse(w, response.CardResponse{
-				Status:  http.StatusBadRequest,
-				Message: "error",
-				Data:    err.Error(),
-			})
-		}
-		return
-	}
-
-	if deletedCount == 0 {
-		writeResponse(w, response.CardResponse{
-			Status:  http.StatusNotFound,
-			Message: "error",
-			Data:    "Card not found",
-		})
-		return
-	}
-
-	writeResponse(w, response.CardResponse{
-		Status:  http.StatusOK,
-		Message: "success",
-		Data:    "Card deleted successfully",
-	})
-}
-
-func writeResponse(w http.ResponseWriter, resp response.CardResponse) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(resp.Status)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(cards)
+}
+
+func (h *CardHandler) GetCardId(w http.ResponseWriter, r *http.Request, id string) {
+	fmt.Println("get card endpoint hit")
+	card, err := repository.GetCard(r.Context(), id)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			writeResponse(w, api.CardResponse{
+				Status:  intPtr(http.StatusNotFound),
+				Message: stringPtr("error"),
+				Data:    toMap("Card not found"),
+			})
+		} else {
+			writeResponse(w, api.CardResponse{
+				Status:  intPtr(http.StatusBadRequest),
+				Message: stringPtr("error"),
+				Data:    toMap(err.Error()),
+			})
+		}
+		return
+	}
+
+	writeResponse(w, api.CardResponse{
+		Status:  intPtr(http.StatusOK),
+		Message: stringPtr("success"),
+		Data:    toMap(card),
+	})
+}
+
+func (h *CardHandler) PutCardId(w http.ResponseWriter, r *http.Request, id string) {
+	fmt.Println("update card endpoint hit")
+	var updateData api.CardUpdate
+	if err := json.NewDecoder(r.Body).Decode(&updateData); err != nil {
+		writeResponse(w, api.CardResponse{
+			Status:  intPtr(http.StatusBadRequest),
+			Message: stringPtr("error"),
+			Data:    toMap(err.Error()),
+		})
+		return
+	}
+
+	updateMap := make(map[string]interface{})
+	if updateData.Name != nil {
+		updateMap["name"] = *updateData.Name
+	}
+	if updateData.Number != nil {
+		updateMap["number"] = *updateData.Number
+	}
+
+	updatedCard, err := repository.UpdateCard(r.Context(), id, updateMap)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			writeResponse(w, api.CardResponse{
+				Status:  intPtr(http.StatusNotFound),
+				Message: stringPtr("error"),
+				Data:    toMap("Card not found"),
+			})
+		} else {
+			writeResponse(w, api.CardResponse{
+				Status:  intPtr(http.StatusInternalServerError),
+				Message: stringPtr("error"),
+				Data:    toMap(err.Error()),
+			})
+		}
+		return
+	}
+
+	writeResponse(w, api.CardResponse{
+		Status:  intPtr(http.StatusOK),
+		Message: stringPtr("success"),
+		Data:    toMap(updatedCard),
+	})
+}
+
+func (h *CardHandler) DeleteCardId(w http.ResponseWriter, r *http.Request, id string) {
+	fmt.Println("Delete card endpoint hit")
+	deletedCount, err := repository.DeleteCard(r.Context(), id)
+	if err != nil || deletedCount == 0 {
+		writeResponse(w, api.CardResponse{
+			Status:  intPtr(http.StatusNotFound),
+			Message: stringPtr("error"),
+			Data:    toMap("Card not found"),
+		})
+		return
+	}
+
+	writeResponse(w, api.CardResponse{
+		Status:  intPtr(http.StatusOK),
+		Message: stringPtr("success"),
+		Data:    toMap("Card deleted successfully"),
+	})
+}
+
+func writeResponse(w http.ResponseWriter, resp api.CardResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	if resp.Status == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println("writeResponse: Status is nil")
+		return
+	}
+	if resp.Data == nil {
+		fmt.Printf("writeResponse: Data is nil for status %d\n", *resp.Status)
+	}
+	w.WriteHeader(*resp.Status)
 	json.NewEncoder(w).Encode(resp)
+}
+
+func intPtr(i int) *int {
+	return &i
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
+
+func toMap(v interface{}) *map[string]interface{} {
+	if v == nil {
+		return nil
+	}
+	switch val := v.(type) {
+	case string:
+		m := map[string]interface{}{"message": val}
+		return &m
+	default:
+		data, err := json.Marshal(v)
+		if err != nil {
+			fmt.Printf("toMap: failed to marshal %v: %v\n", v, err)
+			return nil
+		}
+		var m map[string]interface{}
+		if err := json.Unmarshal(data, &m); err != nil {
+			fmt.Printf("toMap: failed to unmarshal %v: %v\n", data, err)
+			return nil
+		}
+		return &m
+	}
 }

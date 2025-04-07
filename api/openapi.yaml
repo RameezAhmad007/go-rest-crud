@@ -96,6 +96,7 @@ components:
       properties:
         id:
           type: string
+          format: objectid
         name:
           type: string
         number:

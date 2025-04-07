@@ -4,13 +4,12 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/RameezAhmad007/go-rest-crud/internal/config"
 	"github.com/RameezAhmad007/go-rest-crud/internal/handler"
 )
 
 func main() {
 	// Initialize MongoDB connection
-	config.ConnectDB()
+	// config.ConnectDB()
 
 	// Set up HTTP routes
 	mux := http.NewServeMux()
